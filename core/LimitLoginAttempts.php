@@ -194,14 +194,62 @@ class Limit_Login_Attempts {
 
 	public function check_xmlrpc_lock()
 	{
-		if ( is_user_logged_in() || $this->is_ip_whitelisted() )
+		file_put_contents('xmlrpc-log.txt', 'check_xmlrpc_lock'."\n", FILE_APPEND);
+		if ( is_user_logged_in() )
 			return;
 
-		if ( $this->is_ip_blacklisted() || !$this->is_limit_login_ok() )
-		{
-			header('HTTP/1.0 403 Forbidden');
-			exit;
-		}
+		if( $this->app && $response = $this->app->acl_check( array(
+				'ip'        => $this->get_all_ips(),
+				'login'     => $username,
+				'gateway'   => $this->detect_gateway()
+			) ) ) {
+
+			if( $response['result'] === 'deny' ) {
+
+				remove_filter( 'login_errors', array( $this, 'fixup_error_messages' ) );
+				remove_filter( 'wp_login_failed', array( $this, 'limit_login_failed' ) );
+				remove_filter( 'wp_authenticate_user', array( $this, 'wp_authenticate_user' ), 99999 );
+
+				// Remove default WP authentication filters
+				remove_filter( 'authenticate', 'wp_authenticate_username_password', 20 );
+				remove_filter( 'authenticate', 'wp_authenticate_email_password', 20 );
+
+				$err = __( '<strong>ERROR</strong>: Too many failed login attempts.', 'limit-login-attempts-reloaded' );
+
+				$time_left = ( !empty( $response['time_left'] ) ) ? $response['time_left'] : 0;
+				if( $time_left ) {
+
+					if ( $time_left > 60 ) {
+						$time_left = ceil( $time_left / 60 );
+						$err .= ' ' . sprintf( _n( 'Please try again in %d hour.', 'Please try again in %d hours.', $time_left, 'limit-login-attempts-reloaded' ), $time_left );
+					} else {
+						$err .= ' ' . sprintf( _n( 'Please try again in %d minute.', 'Please try again in %d minutes.', $time_left, 'limit-login-attempts-reloaded' ), $time_left );
+					}
+				}
+
+				$this->app->add_error( $err );
+
+				$user = new WP_Error();
+				$user->add( 'username_blacklisted', $err );
+			}
+			else if( $response['result'] === 'pass' ) {
+
+				remove_filter( 'login_errors', array( $this, 'fixup_error_messages' ) );
+				remove_filter( 'wp_login_failed', array( $this, 'limit_login_failed' ) );
+				remove_filter( 'wp_authenticate_user', array( $this, 'wp_authenticate_user' ), 99999 );
+			}
+
+		} else {
+
+			if( $this->is_ip_whitelisted() )
+				return;
+
+			if ( $this->is_ip_blacklisted() || !$this->is_limit_login_ok() ) {
+
+				header('HTTP/1.0 403 Forbidden');
+				exit;
+			}
+        }
 	}
 
 	public function check_whitelist_ips( $allow, $ip ) {
@@ -272,7 +320,7 @@ class Limit_Login_Attempts {
 	* @return IXR_Error
 	*/
 	public function xmlrpc_error_messages( $error ) {
-
+        file_put_contents('xmlrpc-log.txt', 'xmlrpc_error_messages'."\n", FILE_APPEND);
 		if ( ! class_exists( 'IXR_Error' ) ) {
 			return $error;
 		}
