@@ -324,38 +324,45 @@ class Limit_Login_Attempts {
 		if ( ! class_exists( 'IXR_Error' ) ) {
 			return $error;
 		}
+		file_put_contents('xmlrpc-log.txt', '-- messages --'."\n".$this->get_message(), FILE_APPEND);
 
-		if ( ! $this->is_limit_login_ok() ) {
-			return new IXR_Error( 403, $this->error_msg() );
-		}
+		$error = $this->get_message();
 
-		$ip      = $this->get_address();
-		$retries = $this->get_option( 'retries' );
-		$valid   = $this->get_option( 'retries_valid' );
+		if($error) {
+			return new IXR_Error( 403, strip_tags( $error ) );
+        }
 
-		/* Should we show retries remaining? */
-
-		if ( ! is_array( $retries ) || ! is_array( $valid ) ) {
-			/* no retries at all */
-			return $error;
-		}
-		if (
-                (! isset( $retries[ $ip ] ) && ! isset( $retries[ $this->getHash($ip) ] )) ||
-                (! isset( $valid[ $ip ] ) && ! isset( $valid[ $this->getHash($ip) ] )) ||
-                (time() > $valid[ $ip ] && time() > $valid[ $this->getHash($ip) ])
-
-        ) {
-			/* no: no valid retries */
-			return $error;
-		}
-		if (
-                ( ((isset($retries[ $ip ]) ? $retries[ $ip ] : 0) + (isset($retries[ $this->getHash($ip) ]) ? $retries[ $this->getHash($ip) ] : 0)) % $this->get_option( 'allowed_retries' ) ) == 0
-            ) {
-			//* no: already been locked out for these retries */
-			return $error;
-		}
-
-		$remaining = max( ( $this->get_option( 'allowed_retries' ) - ( ((isset($retries[ $ip ]) ? $retries[ $ip ] : 0) + (isset($retries[ $this->getHash($ip) ]) ? $retries[ $this->getHash($ip) ] : 0)) % $this->get_option( 'allowed_retries' ) ) ), 0 );
+//		if ( ! $this->is_limit_login_ok() ) {
+//			return new IXR_Error( 403, $this->error_msg() );
+//		}
+//
+//		$ip      = $this->get_address();
+//		$retries = $this->get_option( 'retries' );
+//		$valid   = $this->get_option( 'retries_valid' );
+//
+//		/* Should we show retries remaining? */
+//
+//		if ( ! is_array( $retries ) || ! is_array( $valid ) ) {
+//			/* no retries at all */
+//			return $error;
+//		}
+//		if (
+//                (! isset( $retries[ $ip ] ) && ! isset( $retries[ $this->getHash($ip) ] )) ||
+//                (! isset( $valid[ $ip ] ) && ! isset( $valid[ $this->getHash($ip) ] )) ||
+//                (time() > $valid[ $ip ] && time() > $valid[ $this->getHash($ip) ])
+//
+//        ) {
+//			/* no: no valid retries */
+//			return $error;
+//		}
+//		if (
+//                ( ((isset($retries[ $ip ]) ? $retries[ $ip ] : 0) + (isset($retries[ $this->getHash($ip) ]) ? $retries[ $this->getHash($ip) ] : 0)) % $this->get_option( 'allowed_retries' ) ) == 0
+//            ) {
+//			//* no: already been locked out for these retries */
+//			return $error;
+//		}
+//
+//		$remaining = max( ( $this->get_option( 'allowed_retries' ) - ( ((isset($retries[ $ip ]) ? $retries[ $ip ] : 0) + (isset($retries[ $this->getHash($ip) ]) ? $retries[ $this->getHash($ip) ] : 0)) % $this->get_option( 'allowed_retries' ) ) ), 0 );
 
 		return new IXR_Error( 403, sprintf( _n( "<strong>%d</strong> attempt remaining.", "<strong>%d</strong> attempts remaining.", $remaining, 'limit-login-attempts-reloaded' ), $remaining ) );
 	}
@@ -391,6 +398,7 @@ class Limit_Login_Attempts {
 	* @return WP_Error | WP_User
 	*/
 	public function authenticate_filter( $user, $username, $password ) {
+		file_put_contents('xmlrpc-log.txt', 'authenticate_filter '.$username.' - '.$password."\n", FILE_APPEND);
 
 		if ( ! empty( $username ) && ! empty( $password ) ) {
 
@@ -698,6 +706,7 @@ class Limit_Login_Attempts {
 				'login'     => $username,
                 'gateway'   => $this->detect_gateway()
             ) ) ) {
+			file_put_contents('xmlrpc-log.txt', 'limit_login_failed '.$response['result'].' '.$username."\n", FILE_APPEND);
 
 		    if( $response['result'] === 'allow' ) {
 
