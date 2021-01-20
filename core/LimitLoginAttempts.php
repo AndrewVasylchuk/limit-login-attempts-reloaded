@@ -1763,7 +1763,7 @@ class Limit_Login_Attempts {
              in_array( 'email', $notify_methods ) ||
              !current_user_can('manage_options') ||
              $this->get_option('enable_notify_notice_shown') ||
-             $screen->parent_base === 'edit' ) return;
+			 !in_array( $screen->base, array( 'dashboard', 'plugins', 'settings_page_limit-login-attempts' ) ) ) return;
 
         $activation_timestamp = $this->get_option('notice_enable_notify_timestamp');
 
