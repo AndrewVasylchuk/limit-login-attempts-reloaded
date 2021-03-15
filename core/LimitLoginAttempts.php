@@ -7,6 +7,7 @@ class Limit_Login_Attempts {
 
 	public $default_options = array(
         'gdpr'              => 0,
+		'gdpr_message'      => 'Test',
 
 		/* Are we behind a proxy? */
 		'client_type'        => LLA_DIRECT_ADDR,
@@ -94,6 +95,7 @@ class Limit_Login_Attempts {
 	public function hooks_init() {
 		add_action( 'plugins_loaded', array( $this, 'setup' ), 9999 );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue' ) );
+		add_action( 'login_enqueue_scripts', array( $this, 'login_page_enqueue' ) );
 		add_filter( 'limit_login_whitelist_ip', array( $this, 'check_whitelist_ips' ), 10, 2 );
 		add_filter( 'limit_login_whitelist_usernames', array( $this, 'check_whitelist_usernames' ), 10, 2 );
 		add_filter( 'limit_login_blacklist_ip', array( $this, 'check_blacklist_ips' ), 10, 2 );
@@ -121,6 +123,8 @@ class Limit_Login_Attempts {
 
 		add_action( 'admin_init', array( $this, 'welcome_page_redirect' ), 9999 );
 		add_action( 'admin_head', array( $this, 'welcome_page_hide_menu' ) );
+
+		add_action( 'login_footer', array( $this, 'login_page_gdpr_message' ) );
 
 		register_activation_hook( LLA_PLUGIN_FILE, array( $this, 'activation' ) );
 	}
@@ -232,6 +236,15 @@ class Limit_Login_Attempts {
 
 		add_filter( 'plugin_action_links_' . LLA_PLUGIN_BASENAME, array( $this, 'add_action_links' ) );
 	}
+
+	public function login_page_gdpr_message() {
+	    ?>
+            <div id="llar-login-page-gdpr">
+                <div class="llar-login-page-gdpr__message"><?php echo esc_html( $this->get_option( 'gdpr_message' ) ); ?></div>
+                <button class="llar-login-page-gdpr__button"><?php esc_html_e( 'Ok', 'limit-login-attempts-reloaded' ); ?></button>
+            </div>
+        <?php
+    }
 
 	public function add_action_links( $actions ) {
 
@@ -537,6 +550,13 @@ class Limit_Login_Attempts {
 			wp_enqueue_script( 'lla-jquery-confirm', LLA_PLUGIN_URL . 'assets/js/jquery-confirm.min.js' );
         }
 
+	}
+
+	public function login_page_enqueue() {
+
+	    $plugin_data = get_plugin_data( LLA_PLUGIN_DIR . '/limit-login-attempts-reloaded.php' );
+
+		wp_enqueue_style( 'llar-login-page-styles', LLA_PLUGIN_URL . 'assets/css/login-page-styles.css', array(), $plugin_data['Version'] );
 	}
 
 	/**
